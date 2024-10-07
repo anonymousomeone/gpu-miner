@@ -25,7 +25,7 @@ pub fn init_library() -> Arc<Instance> {
     return instance;
 }
 
-pub fn init_device(instance: Arc<Instance>) -> (Arc<Device>, Arc<Queue>) {
+pub fn init_device(instance: Arc<Instance>) -> (Arc<Device>, Vec<Arc<Queue>>) {
     // Choose which physical device to use.
     let device_extensions = DeviceExtensions {
         khr_storage_buffer_storage_class: true,
@@ -53,19 +53,28 @@ pub fn init_device(instance: Arc<Instance>) -> (Arc<Device>, Arc<Queue>) {
         })
         .unwrap();
 
+    // let queue_family_index = 2;
     println!(
-        "Using device: {} (type: {:?})",
+        "Using device: {} (type: {:?}); queue family index {}",
         physical_device.properties().device_name,
         physical_device.properties().device_type,
+        queue_family_index
+    );
+
+    let mut queue_priorities = vec![0.5];
+    queue_priorities.resize(
+        physical_device.queue_family_properties()[queue_family_index as usize].queue_count as usize,
+        0.5
     );
 
     // Now initializing the device.
-    let (device, mut queues) = Device::new(
+    let (device, queues) = Device::new(
         physical_device,
         DeviceCreateInfo {
             enabled_extensions: device_extensions,
             queue_create_infos: vec![QueueCreateInfo {
                 queue_family_index,
+                queues: queue_priorities,
                 ..Default::default()
             }],
             ..Default::default()
@@ -73,7 +82,5 @@ pub fn init_device(instance: Arc<Instance>) -> (Arc<Device>, Arc<Queue>) {
     )
     .unwrap();
 
-    let queue = queues.next().unwrap();
-
-    return (device, queue)
+    return (device, queues.collect())
 }

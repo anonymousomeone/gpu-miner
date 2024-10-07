@@ -1,15 +1,17 @@
 use std::env;
+use std::sync;
 use std::time::Instant;
 
 use modules::helpers;
 use modules::jason;
+use modules::mining::miner::MinoeringResult;
 use modules::network;
 use modules::mining::miner;
 use modules::mining::miner::DISPATCH_SIZE;
 
 mod modules;
 
-const MAX_DISPATCHES: usize = 4;
+const MAX_DISPATCHES: usize = 32;
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     println!("Hello, world!");
@@ -52,9 +54,11 @@ fn main() {
             miner.mine(data, nonce);
 
             if (i + 1) % MAX_DISPATCHES as u64 == 0 && (i != 0 || MAX_DISPATCHES == 1) {
-                let results = miner.get_results();
+                let (sender, receiver) = sync::mpsc::channel::<MinoeringResult>();
+                miner.get_results(&sender);
+                drop(sender);
 
-                for result in results {
+                for result in receiver.iter() {
                     let mut string = String::new();
                     let real_nonce = result.nonce;
             
@@ -63,6 +67,10 @@ fn main() {
                         data.reverse();
                         string.push_str(&hex::encode(data));
                     }
+
+                    let diff = Instant::now().duration_since(instant);
+                    let hashes = minoers_mined as u64 * DISPATCH_SIZE as u64 * 64;
+                    println!("Took {}s, looked through {} hashes, with ~{}h/s", diff.as_secs(), hashes, (hashes as f64 / (diff.as_millis() as f64 / 1000f64)) as u64);
                     
                     let res = network::send_to_server(&client, &config, real_nonce);
     
@@ -76,6 +84,7 @@ fn main() {
                             hash = network::get_hash(&client, &config);
                         },
                     }
+                    println!();
                     break 'outer;
                 }
             }
@@ -83,9 +92,6 @@ fn main() {
             output.clear();
         }
 
-        let diff = Instant::now().duration_since(instant);
-        let hashes = minoers_mined as u64 * DISPATCH_SIZE as u64 * 64;
-        println!("Took {}s, looked through {} hashes, with ~{}h/s", diff.as_secs(), hashes, (hashes as f64 / (diff.as_millis() as f64 / 1000f64)) as u64);
         minoers_mined = 0;
     }
 }
