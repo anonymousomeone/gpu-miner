@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::vec::IntoIter;
 
 use vulkano::library::VulkanLibrary;
 use vulkano::instance::Instance;
@@ -25,7 +26,7 @@ pub fn init_library() -> Arc<Instance> {
     return instance;
 }
 
-pub fn init_device(instance: Arc<Instance>) -> (Arc<Device>, Vec<Arc<Queue>>) {
+pub fn init_device(instance: Arc<Instance>) -> (Arc<Device>, IntoIter<Arc<Queue>>) {
     // Choose which physical device to use.
     let device_extensions = DeviceExtensions {
         khr_storage_buffer_storage_class: true,
@@ -61,6 +62,7 @@ pub fn init_device(instance: Arc<Instance>) -> (Arc<Device>, Vec<Arc<Queue>>) {
         queue_family_index
     );
 
+    // println!("{:#?}", physical_device.queue_family_properties());
     let mut queue_priorities = vec![0.5];
     queue_priorities.resize(
         physical_device.queue_family_properties()[queue_family_index as usize].queue_count as usize,
@@ -82,5 +84,5 @@ pub fn init_device(instance: Arc<Instance>) -> (Arc<Device>, Vec<Arc<Queue>>) {
     )
     .unwrap();
 
-    return (device, queues.collect())
+    return (device, queues.collect::<Vec<Arc<Queue>>>().into_iter())
 }
