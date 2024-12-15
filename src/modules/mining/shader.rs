@@ -66,10 +66,10 @@ pub mod cs {
 
                 uvec4 res = add(uvec4(input_data[6], input_data[7], input_data[8], input_data[9]), invocationID);
                 words[0] = input_data[5];
-                words[1] = res.x;
-                words[2] = res.y;
-                words[3] = res.z;
-                words[4] = res.w;
+                words[1] = res[0];
+                words[2] = res[1];
+                words[3] = res[2];
+                words[4] = res[3];
                 words[5] = 0x80000000;
                 words[15] = 672;
                 // words[4] = input_data[4];
@@ -138,7 +138,7 @@ pub mod ocs {
             layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
             layout(set = 0, binding = 0) buffer input_buffer {
-                uint input_data[9];
+                uint input_data[10];
             };
 
             layout(set = 0, binding = 1) buffer output_buffer {
@@ -146,6 +146,35 @@ pub mod ocs {
             };
 
             #define ROTL(x, n) ((x << n) | (x >> (32 - n)))
+
+            uvec4 add(uvec4 data, uint nonce) {
+                uint digit = 0;
+
+                digit = (nonce / 1) % 10;
+                data.w += digit;
+                digit = (nonce / 10) % 10;
+                data.w += digit << 8;
+                digit = (nonce / 100) % 10;
+                data.w += digit << 16;
+                digit = (nonce / 1000) % 10;
+                data.w += digit << 24;
+
+                digit = (nonce / 10000) % 10;
+                data.z += digit;
+                digit = (nonce / 100000) % 10;
+                data.z += digit << 8;
+                digit = (nonce / 1000000) % 10;
+                data.z += digit << 16;
+                digit = (nonce / 10000000) % 10;
+                data.z += digit << 24;
+
+                digit = (nonce / 100000000) % 10;
+                data.y += digit;
+                digit = (nonce / 1000000000) % 10;
+                data.y += digit << 8;
+
+                return data;
+            }
 
             const uint h0 = 0x67452301;
             const uint h1 = 0xefcdab89;
@@ -159,25 +188,26 @@ pub mod ocs {
             const uint k3 = 0xca62c1d6;
 
             void main() {
+                uint invocationID = gl_GlobalInvocationID.x;
                 uint words[80];
 
-                words[0] = input_data[0];
-                words[1] = input_data[1];
-                words[2] = input_data[2];
-                words[3] = input_data[3];
-                words[4] = input_data[4];
-
-                words[5] = input_data[5];
-                words[6] = input_data[6];
-                words[7] = input_data[7];
-
-                words[8] = 0x80000000; // padding
+                uvec4 res = add(uvec4(input_data[6], input_data[7], input_data[8], input_data[9]), invocationID);
+                words[0] = input_data[5];
+                words[1] = res[0];
+                words[2] = res[1];
+                words[3] = res[2];
+                words[4] = res[3];
+                words[5] = 0x80000000;
+                words[6] = 0;
+                words[7] = 0;
+                words[8] = 0;
+                words[9] = 0;
                 words[10] = 0;
                 words[11] = 0;
                 words[12] = 0;
                 words[13] = 0;
                 words[14] = 0;
-                words[15] = 288; // message length (256 + 32)
+                words[15] = 672;
 
                 words[16] = ROTL((words[13] ^ words[8] ^ words[2] ^ words[0]), 1);
                 words[17] = ROTL((words[14] ^ words[9] ^ words[3] ^ words[1]), 1);
@@ -412,13 +442,13 @@ pub mod ocs {
                 temp = ROTL(a, 5)+(b^c^d)+e+k3+words[79];            
                 e=d;d=c;c=ROTL(b,30);b=a;a=temp;
 
-                uint offset = gl_GlobalInvocationID.x * 6;
-                output_data[offset] = h0 + a;
-                output_data[offset + 1] = h1 + b;
-                output_data[offset + 2] = h2 + c;
-                output_data[offset + 3] = h3 + d;
-                output_data[offset + 4] = h4 + e;
-                output_data[offset + 5] = input_data[8] + gl_GlobalInvocationID.x;
+                uint offset = invocationID * 6;
+                output_data[offset] = input_data[0] + a;
+                output_data[offset + 1] = input_data[1] + b;
+                output_data[offset + 2] = input_data[2] + c;
+                output_data[offset + 3] = input_data[3] + d;
+                output_data[offset + 4] = input_data[4] + e;
+                output_data[offset + 5] = invocationID;
             }
         ",
     }

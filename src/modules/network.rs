@@ -10,6 +10,7 @@ pub struct UserHashSetResponse {
     pub status: String,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct UserHashGetResponse {
     hash: String,
